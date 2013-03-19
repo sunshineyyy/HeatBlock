@@ -52,6 +52,7 @@ function Device(listen_port) {
   this.addEventHandler('heatOn',this.heaton);
   this.addEventHandler('heatOff',this.heatoff);
   this.addEventHandler('heatAutomatic',this.heatAutomatic);
+  this.addEventHandler('heatAutomaticEnd', this.heatAutomaticEnd);
   this.addEventHandler('desiredTemp',this.desiredTemp);
   //manually attach to manager.
   this.manager_IP = 'bioturk.ee.washington.edu';
@@ -210,7 +211,7 @@ Device.prototype.heatoff = function(fileds,resp){
 Device.prototype.heatAutomatic = function(fileds,resp){
   "use strict";
   var this_dev = this;
-    console.log('reach heatAutomatic function');
+   // console.log('reach heatAutomatic function');
   if(!this.control_timer) {
     this.control_timer = setInterval(function(){
       var options = {
@@ -247,6 +248,16 @@ Device.prototype.heatAutomatic = function(fileds,resp){
   resp.writeHead(200, {'Content-Type': 'text/html'});
   resp.end();
 };
+
+Device.prototype.heatAutomaticEnd = function(fileds,resp){
+    led.turnOff();
+    console.log('End heating automatically, heater turned off');
+    clearInterval(this.control_timer);
+    this.control_timer = null;
+    resp.writeHead(200, {'Content-Type': 'text/html'});
+    resp.end();
+};
+
 
 Device.prototype.desiredTemp = function(fields,response) {
   //

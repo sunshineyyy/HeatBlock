@@ -59,16 +59,29 @@ MyApp.prototype.start = function() {
       });
 	console.log('Heating automatically');  
     });
+
+    this_app.end_heat_automatic.addEventListener('click',function(){
+      this_app.sendEvent('forward',{cmd: 'heatAutomaticEnd',uuid: this_app.myuuid},
+                         function(err,resp){
+      });
+	console.log('Ending Heating automatically');  
+    });
     
     this_app.get_tempset.addEventListener('click',function(){
 	
       var temp_set_val = this_app.temp_set_val.value;
+	if (temp_set_val>=30&&temp_set_val<=90){
       console.log('receive temp setting '+temp_set_val);
 	var control_command = 'desiredTemp'+'&tempset='+temp_set_val.toString();
     this_app.sendEvent('forward',{cmd: control_command, uuid: this_app.myuuid},
                          function(err,resp){
       });
-	console.log('sending temperature '+temp_set_val);  
+	console.log('sending temperature '+temp_set_val);
+	    alert('Sending temperature setting Ts='+temp_set_val.toString()+'C to HeatBlock server.\n'+'Please click Start Automatic Heat to start heating to Ts='+temp_set_val.toString()+'C.');
+	}
+	else {
+	    alert('Please enter a number between 30 and 90.')
+	}
     });
 
     this_app.dash.loadScript(
@@ -126,7 +139,7 @@ MyApp.prototype.update = function(){
 	});
 	//document.getElementById('current_temp').innerHTML =parseFloat(d).toFixed(2);
       this_app.current_temp.innerHTML=tem_num;
-	this_app.current_time.innerHTML = now_time.toLocaleTimeString();
+      this_app.current_time.innerHTML = now_time.toLocaleString();
 	//var temp_set_val = this_app.temp_form.submit();
 	var temp_set_val = this_app.temp_set_val.value;
 	console.log('show occupy ' +occupy);
@@ -153,12 +166,13 @@ MyApp.prototype.getAllElements = function(){
   this.heat_on =this.getElement("heaton");
   this.heat_off = this.getElement("heatoff");
   this.heat_automatic = this.getElement("heat_automatic");
+  this.end_heat_automatic =this.getElement("end_heat_automatic");
   this.get_tempset =this.getElement("enter");
   this.current_temp = document.getElementById('current_temp');
   this.occupy_info = document.getElementById('occupy_info');
   this.current_time = document.getElementById('current_time');
   this.temp_set_val = document.getElementById ('temp_set_val');
-  //this.temp_form = document.getElementById ('temp_form');
+  this.heater_info = document.getElementById ('heater_info');
 };
 
 //spec says app needs to be named App
