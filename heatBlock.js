@@ -49,8 +49,10 @@ function Device(listen_port) {
   //TODO: REPLACE THESE TWO EVENTS WITH YOUR OWN
   this.addEventHandler('startLog',this.startLogging);
   this.addEventHandler('stopLog',this.stopLogging);
-    this.addEventHandler('heatOn',this.heaton);
-    this.addEventHandler('heatOff',this.heatoff);  
+  this.addEventHandler('heatOn',this.heaton);
+  this.addEventHandler('heatOff',this.heatoff);
+  this.addEventHandler('heatAutomatic',this.heatAutomatic);
+  this.addEventHandler('desiredTemp',this.desiredTemp);
   //manually attach to manager.
   this.manager_IP = 'bioturk.ee.washington.edu';
   this.manager_port = 9090;
@@ -118,6 +120,8 @@ Device.prototype.acquire = function(fields,response) {
   this.manager_IP  = fields['@ip'] ;
   clearInterval(this.advert_timer);
 };
+
+
 Device.prototype.getCodeEvent = function(event_data, response) {
   //gets the app code and sends it in the response body
   //response: the HTTP response
@@ -198,8 +202,64 @@ Device.prototype.heaton = function(fileds,resp){
 Device.prototype.heatoff = function(fileds,resp){
     led.turnOff();
     console.log('heater off');
+    clearInterval(this.control_timer);
+    this.control_timer = null;
     resp.writeHead(200, {'Content-Type': 'text/html'});
     resp.end();
+};
+Device.prototype.heatAutomatic = function(fileds,resp){
+  "use strict";
+  var this_dev = this;
+    console.log('reach heatAutomatic function');
+  if(!this.control_timer) {
+    this.control_timer = setInterval(function(){
+      var options = {
+        hostname: this_dev.manager_IP,
+        port: this_dev.manager_port,
+        path: "/?action=store&uuid="+this_dev.uuid,
+        method: "POST"
+      };
+	var current_temp = this_dev.getTemp();
+	var oc = this_dev.getOccupy();
+	var desired_temp = this_dev.tempset;
+	console.log('heater receive tempset as ' +this_dev.tempset);
+	if ((current_temp <desired_temp)&& (oc==0)){
+           led.turnOn();
+           console.log('heater control working');
+	}
+	else {
+	    led.turnOff();
+	    if (current_temp > desired_temp){
+	    console.log('reach settings');
+	    }
+	    if (oc==1){
+		console.log('heat block occupied');
+	    }
+	    //else {
+	//	console.log('something is wrong');
+	  //  }
+	};
+     //console.log('showing occupancy: '+tempandoc);
+    },1000); //10seconds //TODO: make this variable/not hard coded
+  }
+  
+  //TODO: make response reflect success or fail
+  resp.writeHead(200, {'Content-Type': 'text/html'});
+  resp.end();
+};
+
+Device.prototype.desiredTemp = function(fields,response) {
+  //
+  // set this as acquired
+    // fields: the html query fields
+  // response: an http.ServerResponse object used to respond to the server
+  //
+  response.writeHead(200, {'Content-Type': 'text/plain'});
+  response.end();
+  this.tempset = parseInt(fields.tempset,10);
+  console.log('receive tempset '+this.tempset);
+ // this.manager_IP  = fields['@ip'] ;
+ // clearInterval(this.advert_timer);
 };
 ///////////////////////////////HELPER METHODS///////////////////////////////////
 Device.prototype.getTemp = function() {
@@ -229,7 +289,7 @@ Device.prototype.getOccupy = function() {
     var resistance = 5*270000/adcread - 270000;//270k resistor, Ohm's law
     var occupy = 0;
     console.log('resistance ='+((resistance/1000).toFixed(1)).toString()+' KOhms');
-    if (resistance > 500000)
+    if (resistance > 2000000)
     {
 	occupy =1;
     }
