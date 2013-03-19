@@ -19,7 +19,8 @@ var app_code_path  = 'app.js';
 var html_code_path = 'app.html';
 var name           = 'Smart Heat Block';
 var keystr = "obqQm3gtDFZdaYlENpIYiKzl+/qARDQRmiWbYhDW9wreM/APut73nnxCBJ8a7PwW";
-
+var resist_array = new Array;
+var temp_array = new Array;
 /////////////////////////////// A basic device /////////////////////////////////
 function Device(listen_port) {
   //a basic device.  Many functions are stubs and or return dummy values
@@ -173,7 +174,7 @@ Device.prototype.startLogging = function(fields, resp) {
         //TODO: handle this more elegantly
         console.log("whoops "+e);
       });
-      var t = this_dev.getTemp();
+      var t = this_dev.getAveTemp();
 	var oc = this_dev.getOccupy();
 	var tempandoc =oc.toString()+","+t.toString();
       req.end(tempandoc);
@@ -224,13 +225,13 @@ Device.prototype.heatAutomatic = function(fileds,resp){
 	var oc = this_dev.getOccupy();
 	var desired_temp = this_dev.tempset;
 	console.log('heater receive tempset as ' +this_dev.tempset);
-	if ((current_temp <desired_temp)&& (oc==0)){
+	if ((current_temp <desired_temp-3)&& (oc==0)){
            led.turnOn();
            console.log('heater control working');
 	}
 	else {
 	    led.turnOff();
-	    if (current_temp > desired_temp){
+	    if (current_temp > desired_temp-3){
 	    console.log('reach settings');
 	    }
 	    if (oc==1){
@@ -288,27 +289,76 @@ Device.prototype.getTemp = function() {
   var c = 9.67879E-8;
   var lr = Math.log(resistance);
   var temp = -273.15+1/(a+b*lr+c*lr*lr*lr);
-
+  
   return temp;  
 };
+
+Device.prototype.getAveTemp = function() {
+  //
+  // Gets the temp from rpi.  Note this is blocking since the underlying
+  // call to ioctl is blocking.
+  // returns: the temp in deg C
+  //
+  var this_dev = this;
+  var result = rSPI.readwriteSPI([96,0,0],'/dev/spidev0.1');
+  var adcread = ((result[1]<<2) | (result[2]>>>6))*3.3/1024;
+  var resistance = 3.3*10000/adcread - 10000;
+  
+  var a = 0.00113902;
+  var b = 0.000232276;
+  var c = 9.67879E-8;
+  var lr = Math.log(resistance);
+  var temp = -273.15+1/(a+b*lr+c*lr*lr*lr);
+    temp_array.push(temp);
+    if (temp_array.length >5){
+	temp_array.shift();
+    }
+
+    return this_dev.getArrayAve(temp_array);  
+};
+Device.prototype.getArrayAve = function (dev_array){
+    var sum =0;
+    var ave =0;
+    for (var x=0; x < dev_array.length; x++)
+    {
+	sum = sum + dev_array[x];
+	ave = sum/dev_array.length;
+    }
+    return ave;
+};
+
 Device.prototype.getOccupy = function() {
   //
   // Gets the occupancy information of heat block from rpi.
   //
+    this_dev = this;
     var result = rSPI.readwriteSPI([100,0,0],'/dev/spidev0.1');
     var adcread = ((result[1]<<2) | (result[2]>>>6))*5/1024;
     var resistance = 5*270000/adcread - 270000;//270k resistor, Ohm's law
+    resist_array.push(resistance);
+    if (resist_array.length >4){
+	resist_array.shift();
+    }
+    //var sum_resist=0;
+    //for (var x=0; x < resist_array.length; x++)
+    //{
+//	sum_resist = sum_resist + resist_array[x];
+//	average_resist = sum_resist/resist_array.length;
+  //  }
+    var average_resist = this_dev.getArrayAve(resist_array); 
     var occupy = 0;
     console.log('resistance ='+((resistance/1000).toFixed(1)).toString()+' KOhms');
-    if (resistance > 2000000)
+    if (average_resist > 800000)
     {
-	occupy =1;
+	occupy =0;
     }
-    else 
+    else if (average_resist <750000)
     { 
-	occupy=0;
+	occupy=1;
     }
-  
+    else {
+	console.log('occupancy undecided');
+    }
     return occupy;  
 };
 
