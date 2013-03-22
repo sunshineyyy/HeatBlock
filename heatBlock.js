@@ -23,6 +23,7 @@ var keystr = "obqQm3gtDFZdaYlENpIYiKzl+/qARDQRmiWbYhDW9wreM/APut73nnxCBJ8a7PwW";
 var resist_array = new Array;
 var temp_array = new Array;
 var heater_info = [];
+var temp_rec = 1;
 /////////////////////////////// A basic device /////////////////////////////////
 function Device(listen_port) {
   //a basic device.  Many functions are stubs and or return dummy values
@@ -54,7 +55,7 @@ function Device(listen_port) {
   this.addEventHandler('stopLog',this.stopLogging);
   this.addEventHandler('heatOn',this.heaton);
   this.addEventHandler('heatOff',this.heatoff);
-  this.addEventHandler('heatAutomatic',this.heatAutomatic);
+  this.addEventHandler('heatAutomatic',this.heatpwm);
   this.addEventHandler('heatAutomaticEnd', this.heatAutomaticEnd);
   this.addEventHandler('desiredTemp',this.desiredTemp);
   //manually attach to manager.
@@ -256,11 +257,58 @@ Device.prototype.heatAutomatic = function(fileds,resp){
   resp.end();
 };
 
+Device.prototype.heatpwm = function(fileds,resp){
+  "use strict";
+  var this_dev = this;
+  var initial_temp;
+    if (temp_rec ==1) {
+    initial_temp = this_dev.getTemp();
+	temp_rec = 0;
+    }
+   // console.log('reach heatAutomatic function');
+  if(!this.control_timer) {
+    this.control_timer = setInterval(function(){
+      var options = {
+        hostname: this_dev.manager_IP,
+        port: this_dev.manager_port,
+        path: "/?action=store&uuid="+this_dev.uuid,
+        method: "POST"
+      };
+	var current_temp = this_dev.getTemp();
+	var desired_temp = this_dev.tempset;
+	console.log('heater receive tempset as ' +this_dev.tempset);
+	var percent = (desired_temp - current_temp)/(desired_temp - initial_temp);
+	if ( percent >= 1) {
+	    percent = 1;
+	}
+	var pwm_percent = percent -0.15;
+	if (pwm_percent <=0 ) {
+	    pwm_percent = 0;
+	}
+	led.pwm ([pwm_percent],[10]);
+	console.log('pwm working with ' + pwm_percent.toFixed(2).toString()+ ' '+ initial_temp.toFixed(2).toString());
+	    //if (oc==1){
+//		console.log('heat block occupied');
+//	    }
+	    //else {
+	//	console.log('something is wrong');
+	  //  }
+     //console.log('showing occupancy: '+tempandoc);
+    },10000); //10seconds //TODO: make this variable/not hard coded
+  }
+  
+  //TODO: make response reflect success or fail
+  
+        resp.writeHead(200, {'Content-Type': 'text/html'});
+        resp.end();
+};
+
 Device.prototype.heatAutomaticEnd = function(fileds,resp){
     led.turnOff();
     console.log('End heating automatically, heater turned off');
     clearInterval(this.control_timer);
     this.control_timer = null;
+    temp_rec = 1;
     resp.writeHead(200, {'Content-Type': 'text/html'});
     resp.end();
 };
