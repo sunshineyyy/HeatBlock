@@ -83,6 +83,9 @@ MyApp.prototype.start = function() {
 	    alert('Please enter a number between 30 and 90.')
 	}
     });
+    this_app.submit_duration.addEventListener('click',function(){
+	alert('Heating duration submitted to heat block server.')
+    });
 
     this_app.dash.loadScript(
       "http://www.humblesoftware.com//static/js/flotr2.min.js",
@@ -111,6 +114,7 @@ MyApp.prototype.update = function(){
       var data =result.split(",");
       var occupy =data[0];
       var temp = data[1];
+      var heater_status = data[2];
       var tem_num = parseFloat(temp).toFixed(2);
       //var temp_array =[];
       //console.log('temp array '+ temp_array);
@@ -140,10 +144,10 @@ MyApp.prototype.update = function(){
 	//document.getElementById('current_temp').innerHTML =parseFloat(d).toFixed(2);
       this_app.current_temp.innerHTML=tem_num;
       this_app.current_time.innerHTML = now_time.toLocaleString();
-	//var temp_set_val = this_app.temp_form.submit();
 	var temp_set_val = this_app.temp_set_val.value;
 	console.log('show occupy ' +occupy);
 	console.log('show setting ' +temp_set_val);
+	//check occupancy status
 	if (occupy==1){
 	this_app.occupy_info.innerHTML='Occupied';
 	}
@@ -152,6 +156,17 @@ MyApp.prototype.update = function(){
 	}
 	else {
 	    this_app.occupy_info.innerHTML='Error';
+	}
+	//check heater status
+	console.log('show heater ' +heater_status);
+	if (heater_status ==1) {
+	    this_app.heater_info.innerHTML = 'ON';
+	}
+	else if (heater_status ==0) {
+	    this_app.heater_info.innerHTML ='OFF';
+	}
+	else {
+	    this_app.occupy_info.innerHTML ='Error';
 	}
     }
   };
@@ -168,6 +183,7 @@ MyApp.prototype.getAllElements = function(){
   this.heat_automatic = this.getElement("heat_automatic");
   this.end_heat_automatic =this.getElement("end_heat_automatic");
   this.get_tempset =this.getElement("enter");
+  this.submit_duration = this.getElement('submit_duration');
   this.current_temp = document.getElementById('current_temp');
   this.occupy_info = document.getElementById('occupy_info');
   this.current_time = document.getElementById('current_time');

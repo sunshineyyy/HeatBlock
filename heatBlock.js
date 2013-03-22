@@ -12,7 +12,8 @@ var url    = require('url');
 //My libraries
 var HEL    = require('./httpEventListener.js').HttpEventListener;
 var rSPI   = require('./rSPI');
-var led    = require('./led');
+var led    = require('./controlGPIO/build/Release/led');
+var exec   = require('child_process').exec;
 
 //some parameters.  they should go in a config file later:
 var app_code_path  = 'app.js';
@@ -21,6 +22,7 @@ var name           = 'Smart Heat Block';
 var keystr = "obqQm3gtDFZdaYlENpIYiKzl+/qARDQRmiWbYhDW9wreM/APut73nnxCBJ8a7PwW";
 var resist_array = new Array;
 var temp_array = new Array;
+var heater_info = [];
 /////////////////////////////// A basic device /////////////////////////////////
 function Device(listen_port) {
   //a basic device.  Many functions are stubs and or return dummy values
@@ -176,9 +178,10 @@ Device.prototype.startLogging = function(fields, resp) {
       });
       var t = this_dev.getAveTemp();
 	var oc = this_dev.getOccupy();
-	var tempandoc =oc.toString()+","+t.toString();
+	var heater_info = led.status();
+	var tempandoc =oc.toString()+","+t.toString()+','+heater_info.toString();
       req.end(tempandoc);
-      console.log('logging temp: '+t);
+	console.log('logging temp: '+t+' heater ' +heater_info);
      //console.log('showing occupancy: '+tempandoc);
     },1000); //10seconds //TODO: make this variable/not hard coded
   }
@@ -196,6 +199,8 @@ Device.prototype.stopLogging = function(fields,resp){
 
 Device.prototype.heaton = function(fileds,resp){
     led.turnOn();
+    //led.pwm([0.9],[10])
+    //exec('python onheat.py');
     console.log('heater on');
     resp.writeHead(200, {'Content-Type': 'text/html'});
     resp.end();
@@ -203,6 +208,7 @@ Device.prototype.heaton = function(fileds,resp){
 
 Device.prototype.heatoff = function(fileds,resp){
     led.turnOff();
+    //exec('python offheat.py');
     console.log('heater off');
     clearInterval(this.control_timer);
     this.control_timer = null;
@@ -225,18 +231,18 @@ Device.prototype.heatAutomatic = function(fileds,resp){
 	var oc = this_dev.getOccupy();
 	var desired_temp = this_dev.tempset;
 	console.log('heater receive tempset as ' +this_dev.tempset);
-	if ((current_temp <desired_temp-3)&& (oc==0)){
+	if ((current_temp <desired_temp-3)){
            led.turnOn();
            console.log('heater control working');
 	}
 	else {
 	    led.turnOff();
-	    if (current_temp > desired_temp-3){
+	    if (current_temp > desired_temp){
 	    console.log('reach settings');
 	    }
-	    if (oc==1){
-		console.log('heat block occupied');
-	    }
+	    //if (oc==1){
+//		console.log('heat block occupied');
+//	    }
 	    //else {
 	//	console.log('something is wrong');
 	  //  }
