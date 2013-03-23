@@ -1,5 +1,5 @@
 //
-//  Dummy device.  invoked using nodejs
+//  Smart heat block nodejs Pi side script.  invoked using nodejs
 //
 
 //NODE libraries
@@ -13,17 +13,18 @@ var url    = require('url');
 var HEL    = require('./httpEventListener.js').HttpEventListener;
 var rSPI   = require('./rSPI');
 var led    = require('./controlGPIO/build/Release/led');
-var exec   = require('child_process').exec;
+var exec   = require('child_process').exec; // used when using python script to control GPIO
 
-//some parameters.  they should go in a config file later:
+//some parameters.
 var app_code_path  = 'app.js';
 var html_code_path = 'app.html';
 var name           = 'Smart Heat Block';
 var keystr = "obqQm3gtDFZdaYlENpIYiKzl+/qARDQRmiWbYhDW9wreM/APut73nnxCBJ8a7PwW";
-var resist_array = new Array;
-var temp_array = new Array;
-var heater_info = [];
-var temp_rec = 1;
+//some global data variables
+var resist_array = new Array; //light dependent resistor value array
+var temp_array = new Array; //temperature value array
+var heater_info = []; //heater on or off info, 1 stands for on, 0 for off.
+var temp_rec = 1; // a variable that used to record the starting temperature during an automatic heating process
 /////////////////////////////// A basic device /////////////////////////////////
 function Device(listen_port) {
   //a basic device.  Many functions are stubs and or return dummy values
@@ -157,7 +158,6 @@ Device.prototype.getHTMLEvent = function(event_data, response) {
 };
 
 ////////////////////IMPLEMENTATION SPECIFIC COMMANDS////////////////////////////
-//TODO: REPLACE THESE (AND OR ADD MORE) HERE
 Device.prototype.startLogging = function(fields, resp) {
   "use strict";
   var this_dev = this;
@@ -174,17 +174,16 @@ Device.prototype.startLogging = function(fields, resp) {
         //TODO: make sure post did not fail
       });
       req.on("error",function(e){
-        //TODO: handle this more elegantly
         console.log("whoops "+e);
       });
-      var t = this_dev.getAveTemp();
+        var t = this_dev.getAveTemp();
 	var oc = this_dev.getOccupy();
 	var heater_info = led.status();
 	var tempandoc =oc.toString()+","+t.toString()+','+heater_info.toString();
       req.end(tempandoc);
 	console.log('logging temp: '+t+' heater ' +heater_info);
      //console.log('showing occupancy: '+tempandoc);
-    },1000); //10seconds //TODO: make this variable/not hard coded
+    },1000); //1seconds 
   }
   
   //TODO: make response reflect success or fail
@@ -199,6 +198,7 @@ Device.prototype.stopLogging = function(fields,resp){
 };
 
 Device.prototype.heaton = function(fileds,resp){
+    //turn on heater
     led.turnOn();
     //led.pwm([0.9],[10])
     //exec('python onheat.py');
@@ -208,6 +208,7 @@ Device.prototype.heaton = function(fileds,resp){
 };
 
 Device.prototype.heatoff = function(fileds,resp){
+    //turn off heater
     led.turnOff();
     //exec('python offheat.py');
     console.log('heater off');
@@ -217,6 +218,7 @@ Device.prototype.heatoff = function(fileds,resp){
     resp.end();
 };
 Device.prototype.heatAutomatic = function(fileds,resp){
+  //automatically heating using a naive control methods
   "use strict";
   var this_dev = this;
    // console.log('reach heatAutomatic function');
@@ -258,6 +260,7 @@ Device.prototype.heatAutomatic = function(fileds,resp){
 };
 
 Device.prototype.heatpwm = function(fileds,resp){
+  //automatically heat using pwm wave
   "use strict";
   var this_dev = this;
   var initial_temp;
@@ -287,23 +290,17 @@ Device.prototype.heatpwm = function(fileds,resp){
 	}
 	led.pwm ([pwm_percent],[10]);
 	console.log('pwm working with ' + pwm_percent.toFixed(2).toString()+ ' '+ initial_temp.toFixed(2).toString());
-	    //if (oc==1){
-//		console.log('heat block occupied');
-//	    }
-	    //else {
-	//	console.log('something is wrong');
-	  //  }
-     //console.log('showing occupancy: '+tempandoc);
+	   
     },10000); //10seconds //TODO: make this variable/not hard coded
   }
   
-  //TODO: make response reflect success or fail
-  
+    
         resp.writeHead(200, {'Content-Type': 'text/html'});
         resp.end();
 };
 
 Device.prototype.heatAutomaticEnd = function(fileds,resp){
+    //End automatic heating  
     led.turnOff();
     console.log('End heating automatically, heater turned off');
     clearInterval(this.control_timer);
@@ -315,11 +312,7 @@ Device.prototype.heatAutomaticEnd = function(fileds,resp){
 
 
 Device.prototype.desiredTemp = function(fields,response) {
-  //
-  // set this as acquired
-    // fields: the html query fields
-  // response: an http.ServerResponse object used to respond to the server
-  //
+  //parse the temperature settings heard from manager
   response.writeHead(200, {'Content-Type': 'text/plain'});
   response.end();
   this.tempset = parseInt(fields.tempset,10);
@@ -349,9 +342,7 @@ Device.prototype.getTemp = function() {
 
 Device.prototype.getAveTemp = function() {
   //
-  // Gets the temp from rpi.  Note this is blocking since the underlying
-  // call to ioctl is blocking.
-  // returns: the temp in deg C
+  // Gets the average temp from rpi through a 5 secs window average
   //
   var this_dev = this;
   var result = rSPI.readwriteSPI([96,0,0],'/dev/spidev0.1');
@@ -371,6 +362,9 @@ Device.prototype.getAveTemp = function() {
     return this_dev.getArrayAve(temp_array);  
 };
 Device.prototype.getArrayAve = function (dev_array){
+    //
+    //A function to calculate the average of a numerical array
+    //
     var sum =0;
     var ave =0;
     for (var x=0; x < dev_array.length; x++)
