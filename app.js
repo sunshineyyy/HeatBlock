@@ -69,7 +69,7 @@ MyApp.prototype.start = function() {
     this_app.get_tempset.addEventListener('click',function(){
 	
       var temp_set_val = this_app.temp_set_val.value;
-	if (temp_set_val>=30&&temp_set_val<=90){
+	if (temp_set_val >= 30 && temp_set_val <= 90){
       console.log('receive temp setting '+temp_set_val);
 	var control_command = 'desiredTemp'+'&tempset='+temp_set_val.toString();
     this_app.sendEvent('forward',{cmd: control_command, uuid: this_app.myuuid},
