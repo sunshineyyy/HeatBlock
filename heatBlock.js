@@ -15,11 +15,21 @@ var rSPI   = require('./rSPI');
 var led    = require('./controlGPIO/build/Release/led');
 var exec   = require('child_process').exec; // used when using python script to control GPIO
 
+var voicejs = require('/home/pi/.npm/voice.js/0.1.3/package/voice.js');
+var text = process.argv[4] || 'This is a test sms from voice.js';
+var to = process.argv.slice(5).length ?  process.argv.slice(5) : ['2066737490'];
+
 //some parameters.
 var app_code_path  = 'app.js';
 var html_code_path = 'app.html';
 var name           = 'Smart Heat Block';
 var keystr = "obqQm3gtDFZdaYlENpIYiKzl+/qARDQRmiWbYhDW9wreM/APut73nnxCBJ8a7PwW";
+var client = new voicejs.Client({
+    email: process.argv[2] || 'yaoyu.yang88@gmail.com',
+    password: process.argv[3] || 'password',
+    tokens: require('/home/pi/.npm/voice.js/0.1.3/package/examples/tokens.json')
+});
+
 //some global data variables
 var resist_array = new Array; //light dependent resistor value array
 var temp_array = new Array; //temperature value array
@@ -59,6 +69,7 @@ function Device(listen_port) {
   this.addEventHandler('heatAutomatic',this.heatpwm);
   this.addEventHandler('heatAutomaticEnd', this.heatAutomaticEnd);
   this.addEventHandler('desiredTemp',this.desiredTemp);
+  this.addEventHandler('cellphoneNumber',this.cellphoneNumber);
   //manually attach to manager.
   this.manager_IP = 'bioturk.ee.washington.edu';
   this.manager_port = 9090;
@@ -199,12 +210,14 @@ Device.prototype.stopLogging = function(fields,resp){
 
 Device.prototype.heaton = function(fileds,resp){
     //turn on heater
+    var this_dev = this;
     led.turnOn();
     //led.pwm([0.9],[10])
     //exec('python onheat.py');
     console.log('heater on');
     resp.writeHead(200, {'Content-Type': 'text/html'});
     resp.end();
+    this_dev.sendSMS('Heater in on', '2066737490');
 };
 
 Device.prototype.heatoff = function(fileds,resp){
@@ -214,6 +227,7 @@ Device.prototype.heatoff = function(fileds,resp){
     console.log('heater off');
     clearInterval(this.control_timer);
     this.control_timer = null;
+       
     resp.writeHead(200, {'Content-Type': 'text/html'});
     resp.end();
 };
@@ -310,16 +324,23 @@ Device.prototype.heatAutomaticEnd = function(fileds,resp){
     resp.end();
 };
 
-
+///////////////////////////////Data from UI input///////////////////////////////////
 Device.prototype.desiredTemp = function(fields,response) {
-  //parse the temperature settings heard from manager
+  //parse the temperature settings heard from manager UI
   response.writeHead(200, {'Content-Type': 'text/plain'});
   response.end();
   this.tempset = parseInt(fields.tempset,10);
   console.log('receive tempset '+this.tempset);
- // this.manager_IP  = fields['@ip'] ;
+   // this.manager_IP  = fields['@ip'] ;
  // clearInterval(this.advert_timer);
 };
+Device.prototype.cellphoneNumber = function(fields,response) {
+  //parse the alert phone number info from manger and UI
+  response.writeHead(200, {'Content-Type': 'text/plain'});
+  response.end();
+  this.cellphone = fields.cellphone;
+  console.log('receive phone number ' + this.cellphone);
+}
 ///////////////////////////////HELPER METHODS///////////////////////////////////
 Device.prototype.getTemp = function() {
   //
@@ -373,6 +394,21 @@ Device.prototype.getArrayAve = function (dev_array){
 	ave = sum/dev_array.length;
     }
     return ave;
+};
+
+Device.prototype.sendSMS = function (message, number){
+  //
+  // A function module that takes in message and phone number, sending a SMS with message   //content to the phone number using Google Voice.
+  //
+  client.sms({ to: number, text: message}, function(err, res, data){
+	if(err){
+	    return console.log(err);
+	}
+	console.log('SMS "' +text+ '" sent to', to[0] + '. Conversation id: ', data.send_sms_response.conversation_id);
+    });
+
+    return 0;
+
 };
 
 Device.prototype.getOccupy = function() {

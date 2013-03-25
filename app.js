@@ -68,7 +68,7 @@ MyApp.prototype.start = function() {
     
     this_app.get_tempset.addEventListener('click',function(){
 	
-      var temp_set_val = this_app.temp_set_val.value;
+        var temp_set_val = this_app.temp_set_val.value;
 	if (temp_set_val >= 30 && temp_set_val <= 90){
       console.log('receive temp setting '+temp_set_val);
 	var control_command = 'desiredTemp'+'&tempset='+temp_set_val.toString();
@@ -82,6 +82,24 @@ MyApp.prototype.start = function() {
 	    alert('Please enter a number between 30 and 90.')
 	}
     });
+
+    this_app.get_cellphone.addEventListener('click',function(){
+	var cellphone = this_app.cellphone.value;
+      console.log('receive cell phone '+cellphone);
+	cellphone = cellphone.toString();
+	if (cellphone.length ==10){
+	var send_cellphone = 'cellphoneNumber'+'&cellphone='+cellphone;
+    this_app.sendEvent('forward',{cmd: send_cellphone, uuid: this_app.myuuid},
+                         function(err,resp){
+      });
+	console.log('sending cellphone number '+cellphone);
+	    alert('Sending cellphone number='+cellphone+' to HeatBlock server.');
+	}
+	else {
+	    alert('Please enter a valid cellphone number, normally 10 digits')
+	}
+    });
+
     this_app.submit_duration.addEventListener('click',function(){
 	alert('Heating duration submitted to heat block server.')
     });
@@ -181,12 +199,14 @@ MyApp.prototype.getAllElements = function(){
   this.heat_off = this.getElement("heatoff");
   this.heat_automatic = this.getElement("heat_automatic");
   this.end_heat_automatic =this.getElement("end_heat_automatic");
-  this.get_tempset =this.getElement("enter");
+  this.get_tempset = this.getElement("enter");
+  this.get_cellphone = this.getElement("submit_cellphone"); 
   this.submit_duration = this.getElement('submit_duration');
   this.current_temp = document.getElementById('current_temp');
   this.occupy_info = document.getElementById('occupy_info');
   this.current_time = document.getElementById('current_time');
   this.temp_set_val = document.getElementById ('temp_set_val');
+  this.cellphone = document.getElementById ('cellphone');
   this.heater_info = document.getElementById ('heater_info');
 };
 
